@@ -1,0 +1,181 @@
+#!/usr/bin/expect --
+#
+# Run qemu-system and check we can boot and migrate to a file
+#
+
+if {[llength $argv] == 0} {
+  send_user "Usage: qemu-migrate-file.expect <qemu invocation>\n"
+  exit 1
+}
+
+set tmpdir [pwd]
+if {[file exists "/tmp"]} {set tmpdir "/tmp"}
+catch {set tmpdir $::env(TMP)}
+catch {set tmpdir $::env(TEMP)}
+
+set ftrace {}
+if {[file exists "/sys/kernel/debug/tracing/trace_marker"]} {
+    variable ftrace [open "/sys/kernel/debug/tracing/trace_marker" w]
+}
+
+set filename [file join $tmpdir "system.vmstate.[pid]"]
+set prompt {.*[\#\$] }
+
+proc status_output { status_string } {
+    variable ftrace
+
+    send_user "############# $status_string ###############\n"
+
+    if {[string length $ftrace]} {
+        puts $ftrace "$status_string"
+        flush $ftrace
+    }
+}
+
+proc report_fail { error_code error_string } {
+    status_output "Test FAIL: $error_string"
+    exit $error_code
+}
+
+set timeout 20
+
+status_output "Booting FIRST QEMU: $argv"
+
+#
+# Extract the disk image we are using and make a snapshot
+#
+
+# set skip_arg 0
+# set first_argv {}
+# set diskimg ""
+
+# foreach arg $argv {
+#     if {[string match "file=" $arg]} {
+#         #-drive file=../jessie-arm64.qcow2,id=root,index=0
+        
+#     } else {
+#         lappend first_argv $arg
+#     }
+# }
+
+# #
+# # Make snapshot of diskimg
+# #
+
+# spawn {*}$first_argv
+
+spawn {*}$argv
+
+expect {
+    "sleeping..." { status_output "Assuming init=test" }
+    "login: " { send -- "root\r"
+        # Not all images expect a password
+        expect {
+            "Password: " { send -- "kvm\r" }
+            -regexp "$prompt" { send -- "\r" }
+            timeout { send_user "\r" }
+        }
+        expect -regexp "$prompt"
+        send -- "dmesg -c > /dev/null\r"
+        expect -regexp "$prompt"
+        send -- "uname -a\r"
+        expect -regexp "$prompt"
+        send -- "while \[ 1 \]; do cat /proc/uptime; date; echo \$\$ \$BASHPID; echo 'sleeping...'; sleep 2s; done\r"
+        #send -- "./test2\r"
+    }
+    timeout { report_fail 1 "failed to boot" }
+}
+
+
+set timeout 30
+
+expect "sleeping..."
+expect "sleeping..."
+
+# After running a bit we want to suspend and migrate
+expect {
+    "sleeping..." {
+        # after [ expr { int(3000 * rand()) }]
+        send -- "c"
+    }
+    timeout { report_fail 2 "didn't see task start" }
+}
+expect {
+    "(qemu)" { send -- "stop\r" }
+    timeout { report fail 3 "couldn't get QEMU console" }
+}
+expect {
+    "(qemu)" { send -- "migrate \"exec: cat > $filename\"\r" }
+    timeout { report_fail 4 "VM didn't stop to be migrated" }
+}
+expect {
+    "(qemu)" { send -- "quit\r" }
+    timeout { report_fail 5 "Timed out migrating" }
+}
+
+wait
+
+status_output "End of FIRST QEMU, state in $filename"
+
+sleep 1
+
+#
+# Now we spawn a new QEMU with the vmstate file
+#
+set timeout 20
+sleep 2
+
+set skip_arg 0
+set new_argv {}
+foreach arg $argv {
+    if {$skip_arg == 1} {
+        set skip_arg 0
+    } else {
+        if {[string match "-kernel" $arg]} {
+            set skip_arg 1
+        } elseif {[string match "*append" $arg]} {
+            set skip_arg 1
+        } else {
+            lappend new_argv $arg
+        }
+    }
+}
+lappend new_argv "-incoming"
+lappend new_argv "exec: cat $filename"
+
+status_output "Attempting to restore from: $filename"
+
+spawn {*}$new_argv
+
+expect {
+    "sleeping..." { status_output "looking good, saw a sleeping" }
+    "login:" { report_fail 10 "returned to getty"}
+    timeout { report_fail 11 "task not restored" }
+}
+
+set timeout 15
+
+expect "sleeping..."
+expect "sleeping..."
+expect {
+    "sleeping..." { send -- "c" }
+    timeout { report_fail 12 "didn't see 3rd iteration" }
+}
+
+status_output "Shutting down QEMU"
+
+expect {
+    "(qemu)" { send -- "stop\r" }
+    timeout { report_fail 13 "couldn't kill task" }
+}
+
+expect {
+    "(qemu)" { send -- "quit\r" }
+    timeout { report_fail 14 "Timed out stopping" }
+}
+
+wait
+status_output "Succsessful restore from: $filename :-)"
+file delete -force $filename
+
+exit 0
