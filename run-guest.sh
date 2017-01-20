@@ -6,7 +6,7 @@ DISK=debian-sid.qcow2
 
 qemu-system-aarch64 \
 	-smp 4 -m 4096 \
-	-machine virt -cpu host -enable-kvm \
+	-machine virt,gic-version=host -cpu host -enable-kvm \
 	-device virtio-blk-pci,drive=vda \
 	-netdev user,id=net0 \
 	-device virtio-net-pci,netdev=net0 \
