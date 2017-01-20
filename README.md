@@ -16,8 +16,8 @@ It will also clone Linux and build the latest release with defconfig for your.
 Finally it will clone qemu and build the aarch64-softmmu target for you, also
 using the latest released version.
 
-You can avoid all the downloading and building by placing the folling files in
-the working directory:
+You can avoid all the downloading and building by placing the following files
+in the working directory:
  * debian-sid.qcow2 (must have a root partition as the first partition)
  * Image (any reasonable guest kernel)
  * qemu-system-aarch64 (Some QEMU version with migration support)
