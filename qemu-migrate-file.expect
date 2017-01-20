@@ -100,10 +100,10 @@ expect {
     }
     timeout { report_fail 2 "didn't see task start" }
 }
-expect {
-    "(qemu)" { send -- "stop\r" }
-    timeout { report fail 3 "couldn't get QEMU console" }
-}
+#expect {
+#    "(qemu)" { send -- "stop\r" }
+#    timeout { report fail 3 "couldn't get QEMU console" }
+#}
 expect {
     "(qemu)" { send -- "migrate \"exec: cat > $filename\"\r" }
     timeout { report_fail 4 "VM didn't stop to be migrated" }
