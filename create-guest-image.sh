@@ -59,16 +59,20 @@ qemu-img create -f qcow2 -o preallocation=metadata "$IMAGE" $SIZE ||
 sudo qemu-nbd --connect=/dev/nbd0 "$IMAGE" || error_exit "failed to mount qcow2 image, aborting"
 sudo parted -s -a optimal /dev/nbd0 mklabel gpt -- mkpart primary ext4 1 -1 ||
 	error_exit "partitioning failed, please cleanup manually"
-sudo kpartx -a /dev/nbd0
-sudo mkfs.ext4 /dev/mapper/nbd0p1
+sudo kpartx -a /dev/nbd0 ||
+	error_exit "setting up /dev/mapper partitions failed, please cleanup manually"
+sleep 2
+sudo mkfs.ext4 /dev/mapper/nbd0p1 ||
+	error_exit "mkfs.ext4 on /dev/mapper/nbd0p1 failed, please cleanup manually"
 
 mkdir -p tmp-mount
-sudo mount /dev/mapper/nbd0p1 tmp-mount
+sudo mount /dev/mapper/nbd0p1 tmp-mount ||
+	error_exit "couldn't mount guest fs, please cleanup manually"
 echo "Image file created and formatted, copying FS into image..."
 sudo cp -a "$NAME"/* tmp-mount/.
 echo "Copy complete, clearning up"
 sudo umount tmp-mount
-rmdir tmp-mount
+rm -rf tmp-mount
 
 sudo kpartx -d /dev/nbd0
 sudo qemu-nbd -d /dev/nbd0
