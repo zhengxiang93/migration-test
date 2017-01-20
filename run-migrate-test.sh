@@ -5,7 +5,7 @@
 DISK=debian-sid.qcow2
 
 ./qemu-migrate-file.expect \
-	qemu-system-aarch64 \
+	./qemu-system-aarch64 \
 	-smp 4 -m 4096 \
 	-machine virt,gic-version=host -cpu host -enable-kvm \
 	-device virtio-blk-pci,drive=vda \
