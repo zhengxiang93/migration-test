@@ -35,7 +35,7 @@ fi
 
 git clone git://git.qemu.org/qemu.git $QEMUDIR
 cd $QEMUDIR
-VERSION=`git tag | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' | sort | tail -n 1`
+VERSION=`git tag | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' | sort --version-sort | tail -n 1`
 echo "Building QEMU $VERSION..."
 git checkout $VERSION
 ./configure --target-list=aarch64-softmmu

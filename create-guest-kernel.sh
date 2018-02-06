@@ -35,7 +35,7 @@ fi
 
 git clone git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git $LINUXDIR
 cd $LINUXDIR
-VERSION=`git tag | grep '^v[0-9]\+\.[0-9]\+$' | sort | tail -n 1`
+VERSION=`git tag | grep '^v[0-9]\+\.[0-9]\+$' | sort --version-sort | tail -n 1`
 echo "Building Linux $VERSION..."
 git checkout $VERSION
 make defconfig
